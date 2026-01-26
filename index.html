@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jungle Run: Operación Piraña Fullscreen</title>
+    <style>
+        * { box-sizing: border-box; }
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; background: #000; 
+            display: flex; justify-content: center; align-items: center;
+        }
+        canvas { 
+            display: block; 
+            background: #1a759f;
+            touch-action: none; /* Evita que el celular haga zoom al tocar */
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvasJuego"></canvas>
+    <script src="script.js"></script>
+</body>
+</html>

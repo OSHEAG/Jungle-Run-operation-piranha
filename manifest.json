@@ -1,0 +1,24 @@
+{
+  "short_name": "JungleRun",
+  "name": "Jungle Run: Operación Piraña",
+  "description": "Sobrevive a la selva amazónica",
+  "icons": [
+    {
+      "src": "icono-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icono-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "index.html",
+  "background_color": "#0b132b",
+  "display": "standalone",
+  "theme_color": "#1a759f",
+  "orientation": "landscape"
+}

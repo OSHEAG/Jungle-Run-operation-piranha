@@ -3,7 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
     <title>Jungle Run: Operación Piraña Fullscreen</title>
+
+    <link rel="manifest" href="manifest.json">
+    
+    <meta name="theme-color" content="#1a759f">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <style>
         * { box-sizing: border-box; }
         body, html { 
@@ -14,7 +21,8 @@
         canvas { 
             display: block; 
             background: #1a759f;
-            touch-action: none; /* Evita que el celular haga zoom al tocar */
+            /* touch-action: none es vital para que el juego responda rápido al tocarlo */
+            touch-action: none; 
         }
     </style>
 </head>

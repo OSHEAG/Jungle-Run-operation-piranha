@@ -23,7 +23,7 @@ const soldado = {
     x: 50, 
     y: 0, 
     ancho: 130, 
-    alto: 200, 
+    alto: 150, 
     vy: 0, 
     gravedad: 0.8, 
     saltoFuerza: -25, 
@@ -217,3 +217,4 @@ function dibujar() {
 }
 
 imgSoldado.onload = () => { dibujar(); };
+

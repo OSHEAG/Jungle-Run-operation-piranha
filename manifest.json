@@ -16,9 +16,9 @@
       "purpose": "any"
     }
   ],
-  "start_url": "index.html",
-  "background_color": "#0b132b",
+  "start_url": "./index.html",
+  "background_color": "#0a1f0a",
   "display": "standalone",
-  "theme_color": "#1a759f",
+  "theme_color": "#2ecc71",
   "orientation": "landscape"
 }

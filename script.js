@@ -3,331 +3,340 @@
  * Versión Ultra-Estabilizada (Anti-Freeze) con Parche de Seguridad.
  */
 
-const canvas = document.getElementById('canvasJuego'); // Referencia al lienzo HTML
-const ctx = canvas.getContext('2d'); // Herramienta para dibujar en el lienzo
+const canvas = document.getElementById('canvasJuego'); 
+const ctx = canvas.getContext('2d'); 
 
-const ESTADO = { MENU: 0, JUGANDO: 1, PAUSA: 2, FIN_TURNO: 3, RESULTADOS: 4 }; // Diccionario de estados posibles
+const ESTADO = { MENU: 0, JUGANDO: 1, PAUSA: 2, FIN_TURNO: 3, RESULTADOS: 4 }; 
 
 class JungleRun {
     constructor() {
-        this.tInicio = Date.now(); // Registra el tiempo exacto de arranque
-        this.estadoActual = ESTADO.MENU; // Define que el juego inicia en el menú
-        this.jugadoresTotales = 1; // Valor por defecto de participantes
-        this.turnoActual = 0; // Indica qué jugador debe empezar
-        this.puntajes = []; // Arreglo para guardar los puntos de cada uno
-        this.gravedad = 0.8; // Fuerza que empuja al jugador hacia abajo
-        this.teclas = {}; // Objeto para saber qué teclas están hundidas
-        this.duracionCiclo = 60000; // Milisegundos que dura el día o la noche
-        this.tiempoTransicion = 5000; // Milisegundos que dura el cambio de luz
+        this.tInicio = Date.now(); 
+        this.estadoActual = ESTADO.MENU; 
+        this.jugadoresTotales = 1; 
+        this.turnoActual = 0; 
+        this.puntajes = []; 
+        this.gravedad = 0.8; 
+        this.teclas = {}; 
+        this.duracionCiclo = 60000; 
+        this.tiempoTransicion = 5000; 
         
-        this._cargarRecursos(); // Llama a la carga de archivos externos
-        this._escucharEventos(); // Activa los controles del teclado
-        this.ajustarPantalla(); // Calcula el tamaño inicial del área de juego
+        this._cargarRecursos(); 
+        this._escucharEventos(); 
+        this.ajustarPantalla(); 
         
-        this.render(); // Lanza el bucle infinito de dibujo
+        this.render(); 
     }
 
     _cargarRecursos() {
         this.img = {
-            portada: this._newImg('icono-192.png'), // Carga imagen de fondo inicial
-            fondoNoche: this._newImg('selva_amazonas.png'), // Carga fondo oscuro
-            fondoDia: this._newImg('selva_amazonasd.png'), // Carga fondo claro
-            soldado: this._newImg('soldado.png'), // Carga al personaje principal
-            enemigo: this._newImg('pirana_enemigo.png'), // Carga al enemigo piraña
-            gameOver: this._newImg('pirana_gameover.png') // Carga imagen de derrota
+            portada: this._newImg('icono-192.png'), 
+            fondoNoche: this._newImg('selva_amazonas.png'), 
+            fondoDia: this._newImg('selva_amazonasd.png'), 
+            soldado: this._newImg('soldado.png'), 
+            enemigo: this._newImg('pirana_enemigo.png'), 
+            gameOver: this._newImg('pirana_gameover.png') 
         };
         this.sfx = {
-            disparo: new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/pang/arrow.mp3'), // Sonido de bala
-            muerte: new Audio('https://rpg.hamsterrepublic.com/ohrrpgce/sounds/Explosion1.wav') // Sonido de explosión
+            disparo: new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/pang/arrow.mp3'), 
+            muerte: new Audio('https://rpg.hamsterrepublic.com/ohrrpgce/sounds/Explosion1.wav') 
         };
     }
 
     _newImg(src) { 
-        const i = new Image(); // Crea un objeto de imagen vacío
-        i.src = src; // Le asigna la ruta del archivo
-        i.onerror = () => console.warn("No se pudo cargar: " + src); // Avisa en consola si el archivo no existe
-        return i; // Devuelve la imagen lista para usar
+        const i = new Image(); 
+        i.src = src; 
+        i.onerror = () => console.warn("No se pudo cargar: " + src); 
+        return i; 
     }
 
     _escucharEventos() {
-        window.addEventListener('resize', () => this.ajustarPantalla()); // Reacciona si cambias el tamaño de la ventana
-        window.addEventListener('keydown', (e) => this.input(e.code)); // Detecta cuando presionas una tecla
-        window.addEventListener('keyup', (e) => this.teclas[e.code] = false); // Detecta cuando sueltas la tecla
+        window.addEventListener('resize', () => this.ajustarPantalla()); 
+        window.addEventListener('keydown', (e) => this.input(e.code)); 
+        window.addEventListener('keyup', (e) => this.teclas[e.code] = false);
+
+        // NUEVO: Soporte táctil para móviles
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            this.manejarToque(touch.clientX, touch.clientY);
+        }, { passive: false });
+    }
+
+    manejarToque(x, y) {
+        if (this.estadoActual === ESTADO.MENU) {
+            // Elige jugadores según dónde tocas en la mitad inferior
+            if (y > canvas.height / 2) {
+                if (x < canvas.width * 0.25) this.iniciarPartida(1);
+                else if (x < canvas.width * 0.50) this.iniciarPartida(2);
+                else if (x < canvas.width * 0.75) this.iniciarPartida(3);
+                else this.iniciarPartida(4);
+            }
+        } else if (this.estadoActual === ESTADO.JUGANDO) {
+            // Izquierda salta, Derecha dispara
+            if (x < canvas.width / 2) {
+                if (this.player.enSuelo) {
+                    this.player.vy = this.player.salto;
+                    this.player.enSuelo = false;
+                }
+            } else {
+                this.disparar();
+            }
+        } else if (this.estadoActual === ESTADO.FIN_TURNO) {
+            // Simula ENTER al tocar
+            this.input('Enter');
+        } else if (this.estadoActual === ESTADO.RESULTADOS) {
+            // Simula 'R' al tocar
+            this.input('KeyR');
+        }
     }
 
     ajustarPantalla() {
-        canvas.width = window.innerWidth; // Ajusta el ancho del juego al navegador
-        canvas.height = window.innerHeight; // Ajusta el alto del juego al navegador
+        canvas.width = window.innerWidth; 
+        canvas.height = window.innerHeight; 
     }
 
     iniciarPartida(n) {
-        this.jugadoresTotales = n; // Define el número de jugadores (1 a 4)
-        this.turnoActual = 0; // Reinicia al primer jugador
-        this.puntajes = Array(n).fill(0); // Crea una lista de ceros para los puntos
-        this.prepararTurno(); // Configura el escenario para el primer turno
+        this.jugadoresTotales = n; 
+        this.turnoActual = 0; 
+        this.puntajes = Array(n).fill(0); 
+        this.prepararTurno(); 
     }
 
     prepararTurno() {
-        this.vidas = 3; // Otorga 3 vidas al empezar
-        this.puntos = 0; // Inicia el marcador en cero
-        this.balas = []; // Limpia las balas en pantalla
-        this.piranas = []; // Limpia las pirañas en pantalla
-        this.tInicio = Date.now(); // Reinicia el reloj de dificultad
+        this.vidas = 3; 
+        this.puntos = 0; 
+        this.balas = []; 
+        this.piranas = []; 
+        this.tInicio = Date.now(); 
         
         this.player = {
-            x: 80, y: 0, w: 130, h: 150, vy: 0, // Propiedades físicas del soldado
-            salto: -25, enSuelo: false, // Fuerza de salto y estado de apoyo
-            sueloY: canvas.height - 170 // Calcula dónde está el suelo según la pantalla
+            x: 80, y: 0, w: 130, h: 150, vy: 0, 
+            salto: -25, enSuelo: false, 
+            sueloY: canvas.height - 170 
         };
-        this.estadoActual = ESTADO.JUGANDO; // Cambia la pantalla al modo juego
+        this.estadoActual = ESTADO.JUGANDO; 
     }
 
     input(code) {
-        this.teclas[code] = true; // Registra que la tecla está siendo presionada
         if (this.estadoActual === ESTADO.MENU) {
-            const n = code.match(/Digit(\d)/); // Busca si presionaste números del 1 al 9
-            if (n && n[1] >= 1 && n[1] <= 4) this.iniciarPartida(parseInt(n[1])); // Inicia según el número
+            const n = code.match(/Digit(\d)/); 
+            if (n && n[1] >= 1 && n[1] <= 4) this.iniciarPartida(parseInt(n[1])); 
         } else if (this.estadoActual === ESTADO.JUGANDO) {
-            if (code === 'ArrowUp' && this.player.enSuelo) { // Si presionas arriba y estás en el suelo
-                this.player.vy = this.player.salto; // Impulsa al jugador hacia arriba
-                this.player.enSuelo = false; // Indica que ya no toca el piso
+            if (code === 'ArrowUp' && this.player.enSuelo) { 
+                this.player.vy = this.player.salto; 
+                this.player.enSuelo = false; 
             }
-            if (code === 'Space') this.disparar(); // Si presionas espacio, dispara
-            if (code === 'KeyP') this.estadoActual = ESTADO.PAUSA; // Si presionas P, pausa el juego
+            if (code === 'Space') this.disparar(); 
+            if (code === 'KeyP') this.estadoActual = ESTADO.PAUSA; 
         } else if (this.estadoActual === ESTADO.PAUSA && code === 'KeyP') {
-            this.estadoActual = ESTADO.JUGANDO; // Si estás en pausa y presionas P, reanuda
+            this.estadoActual = ESTADO.JUGANDO; 
         } else if (this.estadoActual === ESTADO.FIN_TURNO && code === 'Enter') {
-            this.puntajes[this.turnoActual] = this.puntos; // Guarda los puntos del jugador actual
-            if (this.turnoActual + 1 < this.jugadoresTotales) { // Revisa si falta alguien por jugar
-                this.turnoActual++; // Pasa al siguiente turno
-                this.prepararTurno(); // Reinicia el nivel para el nuevo jugador
+            this.puntajes[this.turnoActual] = this.puntos; 
+            if (this.turnoActual + 1 < this.jugadoresTotales) { 
+                this.turnoActual++; 
+                this.prepararTurno(); 
             } else {
-                this.estadoActual = ESTADO.RESULTADOS; // Si todos jugaron, muestra el ranking
+                this.estadoActual = ESTADO.RESULTADOS; 
             }
         } else if (this.estadoActual === ESTADO.RESULTADOS && code === 'KeyR') {
-            this.estadoActual = ESTADO.MENU; // Si presionas R al final, vuelve al inicio
+            this.estadoActual = ESTADO.MENU; 
         }
     }
 
     disparar() {
-        this.balas.push({ x: this.player.x + 100, y: this.player.y + 70, v: 15 }); // Agrega una bala al arreglo
-        if (this.sfx.disparo.readyState >= 2) { // Revisa si el sonido cargó lo suficiente
-            this.sfx.disparo.currentTime = 0; // Reinicia el sonido al principio
-            this.sfx.disparo.play().catch(e => console.log("Audio bloqueado")); // Reproduce sonido con protección
+        this.balas.push({ x: this.player.x + 100, y: this.player.y + 70, v: 15 }); 
+        if (this.sfx.disparo.readyState >= 2) { 
+            this.sfx.disparo.currentTime = 0; 
+            this.sfx.disparo.play().catch(() => {}); 
         }
     }
 
     update() {
-        if (this.estadoActual !== ESTADO.JUGANDO) return; // Si no estás jugando, no calcula movimientos
+        if (this.estadoActual !== ESTADO.JUGANDO) return; 
 
-        this.player.vy += this.gravedad; // La gravedad aumenta la velocidad de caída
-        this.player.y += this.player.vy; // La posición cambia según la velocidad vertical
-        if (this.player.y > this.player.sueloY) { // Si el jugador atraviesa el piso
-            this.player.y = this.player.sueloY; // Lo coloca exactamente sobre el suelo
-            this.player.vy = 0; // Detiene la caída
-            this.player.enSuelo = true; // Habilita la posibilidad de saltar
+        this.player.vy += this.gravedad; 
+        this.player.y += this.player.vy; 
+        if (this.player.y > this.player.sueloY) { 
+            this.player.y = this.player.sueloY; 
+            this.player.vy = 0; 
+            this.player.enSuelo = true; 
         }
 
-        const diff = 1 + (Date.now() - this.tInicio) / 15000; // Calcula dificultad según el tiempo
+        const diff = 1 + (Date.now() - this.tInicio) / 15000; 
 
-        if (Math.random() < 0.02 * diff) { // Controla la probabilidad de que salga un enemigo
-            this.piranas.push({ x: canvas.width, y: Math.random() * (canvas.height - 250) + 100, v: 3 * diff }); // Crea piraña
+        if (Math.random() < 0.02 * diff) { 
+            this.piranas.push({ x: canvas.width, y: Math.random() * (canvas.height - 250) + 100, v: 2 * diff }); 
         }
 
         this.piranas.forEach((p, i) => {
-            p.x -= p.v; // Mueve la piraña hacia la izquierda
-            const pBox = { x: p.x + 10, y: p.y + 10, w: 60, h: 30 }; // Caja invisible de daño de la piraña
-            const sBox = { x: this.player.x + 30, y: this.player.y, w: 70, h: 150 }; // Caja invisible del jugador
+            p.x -= p.v; 
+            const pBox = { x: p.x + 10, y: p.y + 10, w: 60, h: 30 }; 
+            const sBox = { x: this.player.x + 30, y: this.player.y, w: 70, h: 150 }; 
 
             if (sBox.x < pBox.x + pBox.w && sBox.x + sBox.w > pBox.x && 
-                sBox.y < pBox.y + pBox.h && sBox.y + sBox.h > pBox.y) { // Detecta choque entre cajas
-                if (this.player.vy > 0 && (sBox.y + sBox.h - this.player.vy) <= pBox.y + 15) { // Si el jugador cae sobre la piraña
-                    this.piranas.splice(i, 1); // Elimina a la piraña
-                    this.puntos += 200; // Da puntos por saltar encima
-                    this.player.vy = this.player.salto / 1.8; // Hace que el jugador rebote
-                    this.sfx.muerte.play().catch(() => {}); // Suena la eliminación
+                sBox.y < pBox.y + pBox.h && sBox.y + sBox.h > pBox.y) { 
+                if (this.player.vy > 0 && (sBox.y + sBox.h - this.player.vy) <= pBox.y + 15) { 
+                    this.piranas.splice(i, 1); 
+                    this.puntos += 200; 
+                    this.player.vy = this.player.salto / 1.8; 
+                    this.sfx.muerte.play().catch(() => {}); 
                 } else {
-                    this.vidas--; // Resta una vida por choque frontal
-                    this.piranas.splice(i, 1); // Quita la piraña que golpeó
-                    if (this.vidas <= 0) this.estadoActual = ESTADO.FIN_TURNO; // Si llega a cero, termina el turno
+                    this.vidas--; 
+                    this.piranas.splice(i, 1); 
+                    if (this.vidas <= 0) this.estadoActual = ESTADO.FIN_TURNO; 
                 }
             }
         });
 
         this.balas.forEach((b, bi) => {
-            b.x += b.v; // Mueve la bala hacia adelante
+            b.x += b.v; 
             this.piranas.forEach((p, pi) => {
-                if (Math.hypot(b.x - p.x, b.y - p.y) < 45) { // Si la distancia entre bala y piraña es corta
-                    this.piranas.splice(pi, 1); // Elimina piraña
-                    this.balas.splice(bi, 1); // Elimina la bala
-                    this.puntos += 100; // Da puntos por puntería
+                if (Math.hypot(b.x - p.x, b.y - p.y) < 45) { 
+                    this.piranas.splice(pi, 1); 
+                    this.balas.splice(bi, 1); 
+                    this.puntos += 100; 
                 }
             });
         });
     }
 
     dibujarFondoDinamico() {
-        const tiempoTranscurrido = (Date.now() - (this.tInicio || 0)) % (this.duracionCiclo * 2); // Ciclo infinito de tiempo
-        let opacidadDia = 0; // Valor de transparencia para el fondo de día
+        const tiempoTranscurrido = (Date.now() - (this.tInicio || 0)) % (this.duracionCiclo * 2); 
+        let opacidadDia = 0; 
 
         if (tiempoTranscurrido > this.duracionCiclo - this.tiempoTransicion && tiempoTranscurrido < this.duracionCiclo) {
-            opacidadDia = (tiempoTranscurrido - (this.duracionCiclo - this.tiempoTransicion)) / this.tiempoTransicion; // Amanecer
+            opacidadDia = (tiempoTranscurrido - (this.duracionCiclo - this.tiempoTransicion)) / this.tiempoTransicion; 
         } else if (tiempoTranscurrido >= this.duracionCiclo && tiempoTranscurrido < (this.duracionCiclo * 2) - this.tiempoTransicion) {
-            opacidadDia = 1; // Día completo
+            opacidadDia = 1; 
         } else if (tiempoTranscurrido >= (this.duracionCiclo * 2) - this.tiempoTransicion) {
-            opacidadDia = 1 - (tiempoTranscurrido - ((this.duracionCiclo * 2) - this.tiempoTransicion)) / this.tiempoTransicion; // Atardecer
+            opacidadDia = 1 - (tiempoTranscurrido - ((this.duracionCiclo * 2) - this.tiempoTransicion)) / this.tiempoTransicion; 
         }
 
-        ctx.fillStyle = "#0a1f0a"; // Color verde oscuro de respaldo
-        ctx.fillRect(0,0, canvas.width, canvas.height); // Pinta el fondo sólido
+        ctx.fillStyle = "#0a1f0a"; 
+        ctx.fillRect(0,0, canvas.width, canvas.height); 
 
-        if (this.img.fondoNoche.complete && this.img.fondoNoche.naturalWidth > 0) { // Si el fondo nocturno cargó
-            ctx.drawImage(this.img.fondoNoche, 0, 0, canvas.width, canvas.height); // Dibújalo
+        if (this.img.fondoNoche.complete && this.img.fondoNoche.naturalWidth > 0) { 
+            ctx.drawImage(this.img.fondoNoche, 0, 0, canvas.width, canvas.height); 
         }
         
-        if (opacidadDia > 0 && this.img.fondoDia.complete && this.img.fondoDia.naturalWidth > 0) { // Si es de día
-            ctx.save(); // Guarda el estado del lienzo
-            ctx.globalAlpha = opacidadDia; // Aplica la transparencia calculada
-            ctx.drawImage(this.img.fondoDia, 0, 0, canvas.width, canvas.height); // Superpone el fondo de día
-            ctx.restore(); // Limpia la configuración de transparencia
+        if (opacidadDia > 0 && this.img.fondoDia.complete && this.img.fondoDia.naturalWidth > 0) { 
+            ctx.save(); 
+            ctx.globalAlpha = opacidadDia; 
+            ctx.drawImage(this.img.fondoDia, 0, 0, canvas.width, canvas.height); 
+            ctx.restore(); 
         }
     }
 
     _drawHeart(x, y, size, fill) {
-        ctx.save(); // Guarda el pincel
-        ctx.beginPath(); // Empieza a trazar el corazón
-        ctx.moveTo(x, y + size / 4); // Punto de inicio
-        ctx.quadraticCurveTo(x, y, x + size / 4, y); // Curva superior izquierda
-        ctx.quadraticCurveTo(x + size / 2, y, x + size / 2, y + size / 4); // Curva central
-        ctx.quadraticCurveTo(x + size / 2, y, x + (size * 3) / 4, y); // Curva superior derecha
-        ctx.quadraticCurveTo(x + size, y, x + size, y + size / 4); // Cierre superior derecho
-        ctx.quadraticCurveTo(x + size, y + size / 2, x + size / 2, y + (size * 3) / 4); // Pico inferior derecho
-        ctx.quadraticCurveTo(x, y + size / 2, x, y + size / 4); // Pico inferior izquierdo
-        ctx.fillStyle = fill ? "#ff4757" : "rgba(255,255,255,0.2)"; // Color rojo si tiene vida, gris si no
-        ctx.fill(); // Rellena el corazón
-        ctx.restore(); // Libera el pincel
+        ctx.save(); ctx.beginPath(); ctx.moveTo(x, y + size / 4);
+        ctx.quadraticCurveTo(x, y, x + size / 4, y);
+        ctx.quadraticCurveTo(x + size / 2, y, x + size / 2, y + size / 4);
+        ctx.quadraticCurveTo(x + size / 2, y, x + (size * 3) / 4, y);
+        ctx.quadraticCurveTo(x + size, y, x + size, y + size / 4);
+        ctx.quadraticCurveTo(x + size, y + size / 2, x + size / 2, y + (size * 3) / 4);
+        ctx.quadraticCurveTo(x, y + size / 2, x, y + size / 4);
+        ctx.fillStyle = fill ? "#ff4757" : "rgba(255,255,255,0.2)";
+        ctx.fill(); ctx.restore();
     }
 
     drawGame() {
-        const hudX = 30, hudY = 30, hudW = 320, hudH = 120; // Ubicación del panel de puntos
-        
-        ctx.save();
-        ctx.shadowBlur = 15; // Brillo del panel
-        ctx.shadowColor = "rgba(0,0,0,0.5)";
-        const grad = ctx.createLinearGradient(hudX, hudY, hudX, hudY + hudH); // Color degradado del panel
-        grad.addColorStop(0, "rgba(20, 20, 20, 0.85)");
-        grad.addColorStop(1, "rgba(40, 40, 40, 0.95)");
+        const hudX = 30, hudY = 30, hudW = 320, hudH = 120;
+        ctx.save(); ctx.shadowBlur = 15; ctx.shadowColor = "rgba(0,0,0,0.5)";
+        const grad = ctx.createLinearGradient(hudX, hudY, hudX, hudY + hudH);
+        grad.addColorStop(0, "rgba(20, 20, 20, 0.85)"); grad.addColorStop(1, "rgba(40, 40, 40, 0.95)");
         ctx.fillStyle = grad;
-        const r = 15;
-        ctx.beginPath(); // Dibuja el marco redondeado
-        ctx.moveTo(hudX + r, hudY);
-        ctx.arcTo(hudX + hudW, hudY, hudX + hudW, hudY + hudH, r);
-        ctx.arcTo(hudX + hudW, hudY + hudH, hudX, hudY + hudH, r);
-        ctx.arcTo(hudX, hudY + hudH, hudX, hudY, r);
-        ctx.arcTo(hudX, hudY, hudX + hudW, hudY, r);
-        ctx.fill();
-        ctx.strokeStyle = "#2ecc71"; // Borde verde neón
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.restore();
+        ctx.beginPath(); ctx.roundRect(hudX, hudY, hudW, hudH, 15); ctx.fill();
+        ctx.strokeStyle = "#2ecc71"; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
 
-        ctx.textAlign = "left";
-        ctx.fillStyle = "#2ecc71";
-        ctx.font = "bold 14px 'Courier New'";
-        ctx.fillText("OPERATIVO ACTIVADO:", hudX + 20, hudY + 30); // Texto decorativo
-        ctx.fillStyle = "white";
-        ctx.font = "bold 22px Arial";
-        ctx.fillText(`JUGADOR ${this.turnoActual + 1}`, hudX + 20, hudY + 55); // Indica quién juega
+        ctx.textAlign = "left"; ctx.fillStyle = "#2ecc71"; ctx.font = "bold 14px Courier New";
+        ctx.fillText("OPERATIVO ACTIVADO:", hudX + 20, hudY + 30);
+        ctx.fillStyle = "white"; ctx.font = "bold 22px Arial";
+        ctx.fillText(`JUGADOR ${this.turnoActual + 1}`, hudX + 20, hudY + 55);
 
-        for (let i = 0; i < 3; i++) {
-            this._drawHeart(hudX + 220 + (i * 30), hudY + 40, 22, i < this.vidas); // Pinta los 3 corazones
-        }
+        for (let i = 0; i < 3; i++) this._drawHeart(hudX + 220 + (i * 30), hudY + 40, 22, i < this.vidas);
 
-        ctx.fillStyle = "#f1c40f";
-        ctx.font = "bold 14px 'Courier New'";
+        ctx.fillStyle = "#f1c40f"; ctx.font = "bold 14px Courier New";
         ctx.fillText("PUNTOS ACUMULADOS:", hudX + 20, hudY + 85);
-        ctx.fillStyle = "white";
-        ctx.font = "bold 26px 'Courier New'";
-        ctx.fillText(this.puntos.toString().padStart(6, '0'), hudX + 20, hudY + 108); // Muestra puntos con ceros a la izquierda
+        ctx.fillStyle = "white"; ctx.font = "bold 26px Courier New";
+        ctx.fillText(this.puntos.toString().padStart(6, '0'), hudX + 20, hudY + 108);
 
-        if (this.img.soldado.complete && this.img.soldado.naturalWidth > 0) { // Si el dibujo del soldado existe
-            ctx.drawImage(this.img.soldado, this.player.x, this.player.y, this.player.w, this.player.h); // Dibújalo
+        if (this.img.soldado.complete && this.img.soldado.naturalWidth > 0) { 
+            ctx.drawImage(this.img.soldado, this.player.x, this.player.y, this.player.w, this.player.h); 
         } else {
-            ctx.fillStyle = "green"; // Si falla la imagen
-            ctx.fillRect(this.player.x, this.player.y, this.player.w, this.player.h); // Dibuja un cuadro verde de emergencia
+            ctx.fillStyle = "green"; ctx.fillRect(this.player.x, this.player.y, this.player.w, this.player.h); 
         }
         
         this.piranas.forEach(p => {
-            if (this.img.enemigo.complete && this.img.enemigo.naturalWidth > 0) { // Si el dibujo de piraña existe
-                ctx.drawImage(this.img.enemigo, p.x, p.y, 80, 50); // Dibújala
+            if (this.img.enemigo.complete && this.img.enemigo.naturalWidth > 0) { 
+                ctx.drawImage(this.img.enemigo, p.x, p.y, 80, 50); 
             } else {
-                ctx.fillStyle = "red"; // Si falla la imagen
-                ctx.fillRect(p.x, p.y, 80, 50); // Dibuja un cuadro rojo de emergencia
+                ctx.fillStyle = "red"; ctx.fillRect(p.x, p.y, 80, 50); 
             }
         });
 
-        ctx.fillStyle = "yellow"; // Color de la munición
-        this.balas.forEach(b => ctx.fillRect(b.x, b.y, 25, 6)); // Dibuja cada bala como un rectángulo
+        ctx.fillStyle = "yellow"; 
+        this.balas.forEach(b => ctx.fillRect(b.x, b.y, 25, 6)); 
     }
 
     render() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height); // Borra todo lo anterior para redibujar
-        this.dibujarFondoDinamico(); // Pinta el paisaje
+        ctx.clearRect(0, 0, canvas.width, canvas.height); 
+        this.dibujarFondoDinamico(); 
 
         try {
-            switch (this.estadoActual) { // Revisa qué pantalla debe mostrar
-                case ESTADO.MENU: this.drawMenu(); break; // Pantalla de inicio
-                case ESTADO.JUGANDO: this.drawGame(); break; // Pantalla de acción
-                case ESTADO.PAUSA: this.drawOverlay("PAUSA - PRESIONA 'P'"); break; // Pantalla de pausa
-                case ESTADO.FIN_TURNO: this.drawGameOver(); break; // Pantalla de "Perdiste"
-                case ESTADO.RESULTADOS: this.drawResultados(); break; // Pantalla de puntajes finales
+            switch (this.estadoActual) { 
+                case ESTADO.MENU: this.drawMenu(); break; 
+                case ESTADO.JUGANDO: this.drawGame(); break; 
+                case ESTADO.PAUSA: this.drawOverlay("PAUSA - TOCA PARA SEGUIR"); break; 
+                case ESTADO.FIN_TURNO: this.drawGameOver(); break; 
+                case ESTADO.RESULTADOS: this.drawResultados(); break; 
             }
-            this.update(); // Procesa los movimientos
+            this.update(); 
         } catch (e) {
-            console.error("Error en ciclo de renderizado:", e); // Captura fallos críticos sin cerrar el juego
+            console.error("Error:", e); 
         }
 
-        requestAnimationFrame(() => this.render()); // Vuelve a ejecutar esta función 60 veces por segundo
+        requestAnimationFrame(() => this.render()); 
     }
 
     drawMenu() {
         if(this.img.portada.complete && this.img.portada.naturalWidth > 0) {
-            ctx.drawImage(this.img.portada, 0, 0, canvas.width, canvas.height); // Dibuja la portada si existe
+            ctx.drawImage(this.img.portada, 0, 0, canvas.width, canvas.height); 
         }
-        ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Oscurece el fondo un poco
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; 
         ctx.fillRect(0, 0, canvas.width, canvas.height); 
         ctx.textAlign = "center"; 
-        ctx.fillStyle = "#2ecc71"; 
-        ctx.font = "bold 50px Courier New"; 
-        ctx.fillText("JUNGLE RUN: ELITE", canvas.width/2, canvas.height/2 - 80); // Texto del título
-        ctx.fillStyle = "white"; 
-        ctx.font = "24px Arial"; 
-        ctx.fillText("ELIGE NÚMERO DE JUGADORES [1-4]", canvas.width/2, canvas.height/2); // Instrucción
+        ctx.fillStyle = "#2ecc71"; ctx.font = "bold 50px Courier New"; 
+        ctx.fillText("JUNGLE RUN: ELITE", canvas.width/2, canvas.height/2 - 80); 
+        ctx.fillStyle = "white"; ctx.font = "24px Arial"; 
+        ctx.fillText("TOCA ABAJO PARA ELEGIR JUGADORES", canvas.width/2, canvas.height/2); 
+        
+        // Guía visual táctica
+        ctx.font = "bold 20px Courier New";
+        for(let i=1; i<=4; i++) {
+            ctx.fillText(`[ ${i} ]`, (canvas.width * 0.25 * i) - (canvas.width * 0.125), canvas.height - 80);
+        }
     }
 
     drawOverlay(txt) {
-        ctx.fillStyle = "rgba(0,0,0,0.8)"; // Crea una capa semitransparente negra
+        ctx.fillStyle = "rgba(0,0,0,0.8)"; 
         ctx.fillRect(0,0,canvas.width, canvas.height); 
         ctx.textAlign = "center"; ctx.fillStyle = "white"; ctx.font = "30px Arial"; 
-        ctx.fillText(txt, canvas.width/2, canvas.height/2); // Escribe el texto en el centro
+        ctx.fillText(txt, canvas.width/2, canvas.height/2); 
     }
 
     drawGameOver() {
-        this.drawOverlay("¡TURNO TERMINADO!"); // Avisa que el jugador perdió
+        this.drawOverlay("¡TURNO TERMINADO!"); 
         ctx.font = "20px Arial"; 
-        ctx.fillText(`Puntos: ${this.puntos}. Presiona ENTER`, canvas.width/2, canvas.height/2 + 50); // Muestra el puntaje
+        ctx.fillText(`Puntos: ${this.puntos}. TOCA PANTALLA`, canvas.width/2, canvas.height/2 + 50); 
     }
 
     drawResultados() {
-        this.drawOverlay("RANKING FINAL"); // Título de la tabla
+        this.drawOverlay("RANKING FINAL"); 
         this.puntajes.forEach((p, i) => { 
-            ctx.fillText(`Jugador ${i+1}: ${p} PTS`, canvas.width/2, 200 + (i*50)); // Escribe los puntos de cada uno
+            ctx.fillText(`Jugador ${i+1}: ${p} PTS`, canvas.width/2, 200 + (i*50)); 
         });
-        ctx.fillText("Presiona 'R' para reiniciar", canvas.width/2, canvas.height - 100); // Instrucción para volver al inicio
+        ctx.fillText("Toca para reiniciar", canvas.width/2, canvas.height - 100); 
     }
 }
 
-const game = new JungleRun(); // Enciende el motor del juego
-
-
-
+const game = new JungleRun();
